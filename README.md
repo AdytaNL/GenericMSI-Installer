@@ -268,8 +268,7 @@ Ensure-64Bit
 ## 👤 Author
 
 Lambert
-
-Adyta.nl
+[`Adyta.nl`](https://adyta.nl)
 
 ---
 
