@@ -208,6 +208,7 @@ Detects if the script is running under 32-bit PowerShell on a 64-bit OS. If so, 
 **Usage**:
 ```powershell
 Ensure-64Bit
+```
 
 ---
 
