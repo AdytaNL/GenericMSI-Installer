@@ -26,13 +26,23 @@ function Write-Log {
         [string]$Message,
         [string]$Level = "INFO"
     )
+
+    $username = $env:USERNAME
+
     if (-not (Test-Path $logPath)) {
         New-Item -ItemType Directory -Path $logPath -Force | Out-Null
     }
-    $ts    = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $entry = "$ts [$Level] $Message"
-    Write-Host $entry
-    Add-Content -Path $logFile -Value $entry
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logLine = "$timestamp [$Level] [$username] $Message"
+
+    # Check to see if we are in an interactive session
+    if ($Host.UI.RawUI -ne $null) {
+        Write-Host $logLine
+    }
+
+    # Log to file
+    Add-Content -Path $logFile -Value $logLine
 }
 
 function Test-AppInstalled {
