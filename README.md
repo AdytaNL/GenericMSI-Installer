@@ -68,6 +68,57 @@ Write-Log -Message "Starting MSI installation" -Level "INFO"
 
 ---
 
+### Log-Info
+
+**Description**: Wrapper around `Write-Log` that logs a message at the **INFO** level.
+
+**Usage**:
+```powershell
+Log-Info -Message <string>
+```
+- `-Message` (string, required): The text to log.
+
+**Example**:
+```powershell
+Log-Info -Message "Starting MSI installation"
+```
+
+---
+
+### Log-Warning
+
+**Description**: Wrapper around `Write-Log` that logs a message at the **WARNING** level.
+
+**Usage**:
+```powershell
+Log-Warning -Message <string>
+```
+- `-Message` (string, required): The text to log.
+
+**Example**:
+```powershell
+Log-Warning -Message "Installation completed with non-fatal issues"
+```
+
+---
+
+### Log-Error
+
+**Description**: Wrapper around `Write-Log` that logs a message at the **ERROR** level.
+
+**Usage**:
+```powershell
+Log-Error -Message <string>
+```
+- `-Message` (string, required): The text to log.
+
+**Example**:
+```powershell
+Log-Error -Message "Failed to install MSI package"
+```
+
+---
+
 ### Get-MSIProperty
 
 **Description**: Retrieves a raw property from an MSI via COM.
