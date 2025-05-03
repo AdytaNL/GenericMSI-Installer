@@ -21,97 +21,163 @@ $ProcessesToKill = @()                        # e.g. "MyApp","MyApp.Service"
 
 # ----- FUNCTIONS ----
 
+# Logs messages to both console and file with a timestamp and log level
 function Write-Log {
     param (
         [string]$Message,
         [string]$Level = "INFO"
     )
-
     $username = $env:USERNAME
-
     if (-not (Test-Path $logPath)) {
         New-Item -ItemType Directory -Path $logPath -Force | Out-Null
     }
-
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logLine = "$timestamp [$Level] [$username] $Message"
-
-    # Check to see if we are in an interactive session
     if ($Host.UI.RawUI -ne $null) {
         Write-Host $logLine
     }
-
-    # Log to file
     Add-Content -Path $logFile -Value $logLine
 }
 
-function Test-AppInstalled {
-    param (
-        [string]$ProductCode,
-        [int]   $TimeoutSeconds = 10
+# --- Logging level-specific wrappers ---
+function Log-Info {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Message
     )
-    $paths = @(
+    Write-Log -Message $Message -Level 'INFO'
+}
+
+function Log-Warning {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Message
+    )
+    Write-Log -Message $Message -Level 'WARNING'
+}
+
+function Log-Error {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Message
+    )
+    Write-Log -Message $Message -Level 'ERROR'
+}
+
+# Checks if the application is installed by searching the registry for its product code
+function Test-AppInstalled {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)][string]$ProductCode,
+        [string]$AppName = $ProductCode,
+        [int]$TimeoutSeconds = 10
+    )
+
+    $registryPaths = @(
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$ProductCode",
         "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\$ProductCode"
     )
-    $start = Get-Date
-    while ((Get-Date) - $start -lt [TimeSpan]::FromSeconds($TimeoutSeconds)) {
-        foreach ($p in $paths) {
-            if (Test-Path $p) { return $true }
+
+    try {
+        Log-Info "Checking installation of '$AppName' (ProductCode: $ProductCode) with timeout $TimeoutSeconds sec"
+        $startTime = Get-Date
+
+        while ($true) {
+            foreach ($path in $registryPaths) {
+                Log-Info "Looking for registry key: $path"
+                if (Test-Path $path) {
+                    Log-Info "Found installation at: $path"
+                    return $true
+                }
+            }
+
+            if ((Get-Date) - $startTime -ge ([TimeSpan]::FromSeconds($TimeoutSeconds))) {
+                Log-Info "No installation detected for '$AppName' within $TimeoutSeconds seconds"
+                return $false
+            }
+            Start-Sleep -Seconds 1
         }
-        Start-Sleep -Seconds 1
     }
-    return $false
+    catch {
+        Log-Error "Error checking install status for '$AppName' ($ProductCode): $_"
+        return $false
+    }
 }
 
+# Stops one or more processes by name, with logging for each attempt
 function Stop-Processes {
-    param ([string[]]$ProcessNames)
-    if ($ProcessNames.Count -gt 0) {
-        Write-Log "Pre-uninstall: stopping processes: $($ProcessNames -join ', ')"
-        foreach ($name in $ProcessNames) {
-            $procs = Get-Process -Name $name -ErrorAction SilentlyContinue
-            if ($procs) {
-                Write-Log " → Found $($procs.Count) ‘$name’ process(es); terminating..."
-                try {
-                    Stop-Process -Name $name -Force -ErrorAction Stop
-                    Write-Log "   Terminated all ‘$name’ processes."
-                } catch {
-                    Write-Log "   Warning: failed to terminate ‘$name’: $_" "WARNING"
-                }
-            } else {
-                Write-Log " → No running processes named ‘$name’."
+    [CmdletBinding()]
+    param(
+        [string[]]$ProcessNames = @()
+    )
+
+    # If no process names were supplied, log and exit
+    if ($ProcessNames.Count -eq 0) {
+        Log-Warning 'No process names supplied; nothing to stop.'
+        return
+    }
+
+    Log-Info "Starting process termination for: $($ProcessNames -join ', ')"
+
+    foreach ($Process in $ProcessNames) {
+        Log-Info "Searching for process: $Process"
+        $running = Get-Process -Name $Process -ErrorAction SilentlyContinue
+
+        if ($running) {
+            Log-Info "Found $($running.Count) instance(s) of $Process; terminating..."
+            try {
+                Stop-Process -Name $Process -Force -ErrorAction Stop
+                Log-Info "Successfully terminated all '$Process' processes."
             }
+            catch {
+                Log-Warning "Failed to terminate process '$Process': $_"
+            }
+        }
+        else {
+            Log-Info "No active processes found for '$Process'."
         }
     }
 }
 
 # Self-elevation logic, the script will restart itself in the 64-bit host
 function Ensure-64Bit {
+    [CmdletBinding()]
+    param()
+
     # If running under the 32-bit host on a 64-bit OS...
-    if ($ENV:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
+    if ($ENV:PROCESSOR_ARCHITEW6432 -eq 'AMD64') {
         # Log & restart in 64-bit
-        Write-Log -Message "Detected 32-bit PowerShell; restarting in 64-bit." -Level "INFO"
+        Log-Info "Detected 32-bit PowerShell; restarting in 64-bit."
 
         # Rebuild arguments to pass through any bound parameters
-        $argList = @("-File", $PSCommandPath)
+        $argList = @('-File', $PSCommandPath)
         foreach ($param in $MyInvocation.BoundParameters.GetEnumerator()) {
             $name  = $param.Key
             $value = $param.Value
+
             if ($value -is [switch] -and $value.IsPresent) {
                 $argList += "-$name"
             }
             elseif ($value -ne $null) {
-                $argList += "-$name"; $argList += $value.ToString()
+                $argList += "-$name"
+                $argList += $value.ToString()
             }
         }
 
-        # Launch 64-bit PowerShell and wait
-        Start-Process -FilePath "$ENV:WINDIR\SysNative\WindowsPowerShell\v1.0\PowerShell.exe" `
-                      -ArgumentList $argList `
-                      -Wait -NoNewWindow
+        try {
+            # Launch 64-bit PowerShell and wait
+            Start-Process `
+                -FilePath "$ENV:WINDIR\SysNative\WindowsPowerShell\v1.0\PowerShell.exe" `
+                -ArgumentList $argList `
+                -Wait -NoNewWindow
 
-        # Exit the 32-bit instance
-        exit
+            # Exit the original 32-bit session
+            exit
+        }
+        catch {
+            Log-Error "Failed to restart in 64-bit PowerShell: $_"
+            throw
+        }
     }
 }
 # ----- END FUNCTIONS ----
@@ -121,42 +187,54 @@ function Ensure-64Bit {
 Ensure-64Bit
 
 # --- PRE-UNINSTALL ---
-Write-Log "Executing pre-uninstall tasks for ProductCode $ProductCode"
+Log-Info "Executing pre-uninstall tasks for ProductCode $ProductCode"
 Stop-Processes -ProcessNames $ProcessesToKill
-Write-Log "Pre-uninstall tasks completed."
+Log-Info "Pre-uninstall tasks completed."
 
 # --- BEGIN UNINSTALL PROCESS ---
-Write-Log "Starting uninstall of ProductCode $ProductCode"
+Log-Info "Starting uninstall of ProductCode $ProductCode"
 $arguments = "/x `"$ProductCode`" /qn /norestart"
-Write-Log "Running: msiexec.exe $arguments"
+Log-Info "Running: msiexec.exe $arguments"
 
-$proc = Start-Process -FilePath "msiexec.exe" `
-                      -ArgumentList $arguments `
-                      -Wait -PassThru
+try {
+    $process = Start-Process `
+        -FilePath "msiexec.exe" `
+        -ArgumentList $arguments `
+        -Wait -PassThru `
+        -ErrorAction Stop
 
+    if ($process.ExitCode -eq 0) {
+        Log-Info "MSI uninstallation completed successfully."
+    }
+    else {
+        Log-Warning "MSI uninstallation exited with code $($process.ExitCode)."
+    }
+}
+catch {
+    Log-Error "Failed to uninstall MSI: $_"
+    exit 1
+}
 # Handle msiexec exit codes
-switch ($proc.ExitCode) {
-    0 {
-        Write-Log "msiexec reported success (0)."
-    }
-    3010 {
-        Write-Log "Installation requires reboot (3010)." "WARNING"
-    }
-    default {
-        Write-Log "msiexec failed with exit code $($proc.ExitCode)." "ERROR"
-        exit 1
-    }
+if ($process.ExitCode -eq 0) {
+    Log-Info "Uninstallation successful."
+}
+elseif ($process.ExitCode -eq 3010) {
+    Log-Warning "Uninstallation requires reboot (3010)."
+}
+else {
+    Log-Error "Uninstallation failed with exit code $($process.ExitCode)."
+    exit 1
 }
 
 # --- FINAL CHECK ---
 if (-not (Test-AppInstalled -ProductCode $ProductCode -TimeoutSeconds 60)) {
-    Write-Log "ProductCode $ProductCode uninstalled successfully."
+    Log-Info "ProductCode $ProductCode uninstalled successfully."
     if ($RequireReboot) {
-        Write-Log "Reboot is enforced. Restarting now..." "WARNING"
+        Log-Warning "Reboot is enforced. Restarting now..."
         Restart-Computer -Force
     }
     exit 0
 } else {
-    Write-Log "ProductCode $ProductCode still detected after uninstall." "ERROR"
+    Log-Error "ProductCode $ProductCode still detected after uninstall."
     exit 1
 }
