@@ -18,7 +18,7 @@ $logFile = Join-Path -Path $logPath -ChildPath ((Get-Item -Path $PSCommandPath).
 # Customize these variables for the specific MSI you're installing
 $MSIFileName        = "<MSI-Filename-HERE>.msi" # Name of the MSI file to install (must be in the script's folder)
 $RequireReboot      = $false                      # Whether to force a reboot after installation
-$ProcessesToKill    = @()                         # Optional: List of process names to stop before install
+$ProcessesToKill    = @()                         # Optional: List of process names (without .exe extension!) to stop before install
 $ExecutablePath     = ""                          # Optional: Path to an executable to validate or start after install
 $RegistryCheckPath  = ""                          # Optional: Registry path to validate or create
 $RegistryCheckName  = ""                          # Optional: Registry value name to validate or create
