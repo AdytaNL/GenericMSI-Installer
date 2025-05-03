@@ -21,7 +21,9 @@ A reusable PowerShell framework for installing and uninstalling MSIs, designed f
 
 - Windows PowerShell (tested on 5.1+).
 - Administrator privileges to install/uninstall applications.
-- Microsoft Intune Win32 Content Prep Tool for packaging into `.intunewin`.
+
+## Optional - script can be used with/without Intune
+- Microsoft Intune Win32 Content Prep Tool for packaging into `.intunewin`. 
 
 ## Packaging for Intune
 
