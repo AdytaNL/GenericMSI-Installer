@@ -213,21 +213,41 @@ function Ensure-RegistryValue {
         }
     }
 }
+
+# Self-elevation logic, the script will restart itself in the 64-bit host
+function Ensure-64Bit {
+    # If running under the 32-bit host on a 64-bit OS...
+    if ($ENV:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
+        # Log & restart in 64-bit
+        Write-Log -Message "Detected 32-bit PowerShell; restarting in 64-bit." -Level "INFO"
+
+        # Rebuild arguments to pass through any bound parameters
+        $argList = @("-File", $PSCommandPath)
+        foreach ($param in $MyInvocation.BoundParameters.GetEnumerator()) {
+            $name  = $param.Key
+            $value = $param.Value
+            if ($value -is [switch] -and $value.IsPresent) {
+                $argList += "-$name"
+            }
+            elseif ($value -ne $null) {
+                $argList += "-$name"; $argList += $value.ToString()
+            }
+        }
+
+        # Launch 64-bit PowerShell and wait
+        Start-Process -FilePath "$ENV:WINDIR\SysNative\WindowsPowerShell\v1.0\PowerShell.exe" `
+                      -ArgumentList $argList `
+                      -Wait -NoNewWindow
+
+        # Exit the 32-bit instance
+        exit
+    }
+}
 # -----END FUNCTIONS ----
 
 # --- 64-bit PowerShell Check ---
 # If the script is running in 32-bit PowerShell on a 64-bit OS, restart it in 64-bit mode
-if ($ENV:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
-    try {
-        Write-Log "Running in 32-bit PowerShell. Restarting in 64-bit..." "INFO"
-        $argList = @("-File", "$PSCommandPath")
-        Start-Process -FilePath "$ENV:WINDIR\\SysNative\\WindowsPowerShell\\v1.0\\PowerShell.exe" `
-                      -ArgumentList $argList -Wait -NoNewWindow
-    } catch {
-        Throw "Failed to start 64-bit PowerShell: $_"
-    }
-    exit
-}
+Ensure-64Bit
 
 # --- Resolve MSI Path ---
 # Build the full path to the MSI file and validate it exists
