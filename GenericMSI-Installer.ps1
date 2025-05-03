@@ -23,6 +23,7 @@
 
 .AUTHOR
     Lambert
+    Adyta.nl
 
 .LICENSE
     MIT
