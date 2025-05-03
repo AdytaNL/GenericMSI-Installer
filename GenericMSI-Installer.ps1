@@ -1,5 +1,18 @@
 <#
-    This PowerShell script installs a specified MSI package with optional pre- and post-install logic.
+.SYNOPSIS
+    Automates the silent installation of a specified MSI package 
+    with robust pre- and post-install logic.
+
+.DESCRIPTION
+    This script installs an MSI file located alongside the script,
+    optionally terminating specified processes beforehand,
+    extracting MSI metadata (ProductCode, Version, Name, Publisher),
+    validating or setting registry values as needed,
+    launching a helper executable in the interactive user session,
+    writing detailed logs to both console and file,
+    verifying installation success through exit codes and product checks,
+    and enforcing an optional system reboot.
+
     It includes features such as:
     - Logging to file and console
     - Killing specific processes before install
@@ -7,6 +20,12 @@
     - Checking or setting registry values
     - Starting an executable in the user session
     - Verifying install success and optionally rebooting the machine
+
+.AUTHOR
+    Lambert
+
+.LICENSE
+    MIT
 #>
 
 # --- LOGGING INITIALIZATION ---
