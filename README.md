@@ -42,26 +42,11 @@ A reusable PowerShell framework for installing and uninstalling MSIs, designed f
      ```
    - **Detection rule**: Use the MSI’s ProductCode in the registry or a custom registry/file check matching your script’s verification logic.
 
-## 64-bit PowerShell Check
+## 64-bit PowerShell Check (Function Ensure-64Bit)
 
-Intune launches PowerShell in 32-bit mode by default on 64-bit systems unless you explicitly reference the 64-bit executable path in the Intune GUI. This self-elevation logic ensures that even when using a generic `powershell.exe ...` install command, the script will restart itself in the 64-bit host, preserving correct behavior for MSI installs and registry access.
+Intune launches PowerShell in 32-bit mode by default on 64-bit systems unless you explicitly reference the 64-bit executable path in the Intune GUI. This script uses self-elevation logic to ensure that even when using a generic `powershell.exe ...` install command, the script will restart itself in the 64-bit host, preserving correct behavior for MSI installs and registry access.
 
-```powershell
-# If the script is running in 32-bit PowerShell on a 64-bit OS, restart it in 64-bit mode
-if ($ENV:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
-    try {
-        Write-Log "Running in 32-bit PowerShell. Restarting in 64-bit..." "INFO"
-        $argList = @("-File", "$PSCommandPath")
-        Start-Process -FilePath "$ENV:WINDIR\SysNative\WindowsPowerShell\v1.0\PowerShell.exe" `
-                      -ArgumentList $argList -Wait -NoNewWindow
-    } catch {
-        Throw "Failed to start 64-bit PowerShell: $_"
-    }
-    exit
-}
-```
-
-This block ensures your scripts always execute in the correct PowerShell host, avoiding issues with registry redirection or process architecture.
+This function ensures your scripts always execute in the correct PowerShell host, avoiding issues with registry redirection or process architecture.
 
 ## Functions Reference
 
@@ -212,6 +197,17 @@ Start-ExecutableInUserSession -ExecutablePath <string> [-TaskName <string>]
 ```powershell
 Start-ExecutableInUserSession -ExecutablePath "C:\Program Files\MyApp\MyApp.exe" -TaskName "LaunchMyAppGUI"
 ```
+
+---
+
+### Ensure-64Bit
+
+**Description**:  
+Detects if the script is running under 32-bit PowerShell on a 64-bit OS. If so, it logs an informational message via `Write-Log`, rebuilds and forwards all bound switches and parameters, restarts the script under the 64-bit PowerShell host (`SysNative\WindowsPowerShell\v1.0\PowerShell.exe`), waits for that process to finish, and then exits the original 32-bit session.
+
+**Usage**:
+```powershell
+Ensure-64Bit
 
 ---
 
