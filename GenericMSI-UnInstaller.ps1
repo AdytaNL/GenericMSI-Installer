@@ -1,11 +1,30 @@
 <#
-    Generic MSI Uninstaller
+.SYNOPSIS
+    Automates the silent uninstallation of a specified MSI package 
+    with robust pre and post-uninstall logic.
+
+.DESCRIPTION
     Mirrors the structure of the GenericMSI-Installer.ps1
     Only $ProductCode (and optionally $RequireReboot) needs to be defined.
 
     To interactively discover installed MSI product codes,
     download GetMSI-Info.ps1 from:
     https://github.com/AdytaNL/GetMSI-Info
+
+    GenericMSI-UnInstaller.ps1 removes an MSI application identified by its ProductCode,
+    optionally terminating specified processes beforehand,
+    ensures the script runs in a 64-bit PowerShell host on 64-bit OS,
+    logs detailed events to both console and a log file,
+    executes msiexec.exe with `/x <ProductCode> /qn /norestart`,
+    handles and records msiexec exit codes (including reboot-required 3010),
+    verifies removal by checking registry uninstall keys,
+    and enforces an optional system reboot upon successful uninstallation.
+
+.AUTHOR
+    Lambert
+
+.LICENSE
+    MIT
 #>
 
 # --- LOGGING INITIALIZATION ---
