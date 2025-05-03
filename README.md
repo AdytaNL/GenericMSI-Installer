@@ -265,6 +265,12 @@ Ensure-64Bit
 
 ---
 
+## 👤 Author
+
+Lambert
+
+---
+
 ## License
 
 MIT License. Feel free to adapt and extend for your organization.
