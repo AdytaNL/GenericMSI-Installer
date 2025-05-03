@@ -87,6 +87,20 @@ function Stop-Processes {
 
 # ----- END FUNCTIONS ----
 
+# --- 64-bit PowerShell Check ---
+# If the script is running in 32-bit PowerShell on a 64-bit OS, restart it in 64-bit mode
+if ($ENV:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
+    try {
+        Write-Log "Running in 32-bit PowerShell. Restarting in 64-bit..." "INFO"
+        $argList = @("-File", "$PSCommandPath")
+        Start-Process -FilePath "$ENV:WINDIR\\SysNative\\WindowsPowerShell\\v1.0\\PowerShell.exe" `
+                      -ArgumentList $argList -Wait -NoNewWindow
+    } catch {
+        Throw "Failed to start 64-bit PowerShell: $_"
+    }
+    exit
+}
+
 # --- PRE-UNINSTALL ---
 Write-Log "Executing pre-uninstall tasks for ProductCode $ProductCode"
 Stop-Processes -ProcessNames $ProcessesToKill
